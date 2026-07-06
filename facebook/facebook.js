@@ -127,8 +127,14 @@ window.Facebook = {
         {
             const text = dialog.innerText || "";
             // Verifica se o modal parece ser o de criação de post
-            if (text.includes("Criar publicação") ||
-                text.includes("Create post") ||
+            // Melhora a detecção procurando por cabeçalhos específicos
+            const hasHeader = dialog.querySelector("h2")?.innerText?.includes("Criar") ||
+                              dialog.querySelector("h1")?.innerText?.includes("Criar") ||
+                              text.startsWith("Criar publicação") ||
+                              text.startsWith("Criar post") ||
+                              text.startsWith("Create post");
+
+            if (hasHeader ||
                 text.includes("No que você está pensando") ||
                 text.includes("What's on your mind") ||
                 text.includes("Postar") ||
@@ -143,7 +149,12 @@ window.Facebook = {
     findEditorInput()
     {
         // No modal do FB, o campo de texto geralmente é um div com role="textbox" ou contenteditable
-        const input = document.querySelector("div[role='dialog'] div[role='textbox'], div[role='dialog'] [contenteditable='true']");
+        // Tenta pegar o textbox do último modal aberto (caso haja sobreposição)
+        const dialogs = document.querySelectorAll("div[role='dialog']");
+        if (dialogs.length === 0) return null;
+
+        const lastDialog = dialogs[dialogs.length - 1];
+        const input = lastDialog.querySelector("div[role='textbox'], [contenteditable='true']");
         return input;
     },
 
@@ -206,9 +217,26 @@ window.Facebook = {
     {
         console.log("🚀 openEditor() foi chamado!");
 
+        if (this.isModalOpen()) {
+            console.log("✅ Modal já está aberto, ignorando clique.");
+            AppState.facebook.editorOpen = true;
+            AppState.setStep("EDITOR_OPEN");
+            return true;
+        }
+
         AppState.setStep("OPENING_EDITOR");
 
-        const buttons = this.findEditorButtons();
+        let buttons = this.findEditorButtons();
+
+        // Tenta usar o seletor "aprendido" para priorizar
+        const learnedText = await Storage.get("learned_button_text");
+        if (learnedText) {
+            console.log("🧠 Usando texto aprendido:", learnedText);
+            const priorityMatch = buttons.find(b => b.innerText?.trim() === learnedText);
+            if (priorityMatch) {
+                buttons = [priorityMatch, ...buttons.filter(b => b !== priorityMatch)];
+            }
+        }
 
         // Prioriza botões visíveis
         const visibleButtons = buttons.filter(b => {
@@ -228,7 +256,8 @@ window.Facebook = {
 
         for (const button of targets)
         {
-            console.log("Tentando clicar no botão:", button.innerText?.substring(0, 30));
+            const buttonText = button.innerText?.trim();
+            console.log("Tentando clicar no botão:", buttonText?.substring(0, 30));
 
             button.scrollIntoView({ behavior: "smooth", block: "center" });
             await new Promise(r => setTimeout(r, 500));
@@ -242,6 +271,12 @@ window.Facebook = {
                 if (this.isModalOpen())
                 {
                     console.log("✅ Modal de postagem detectado!");
+
+                    // "Aprende" qual texto funcionou
+                    if (buttonText) {
+                        await Storage.set("learned_button_text", buttonText);
+                    }
+
                     AppState.facebook.editorOpen = true;
                     AppState.setStep("EDITOR_OPEN");
                     return true;
