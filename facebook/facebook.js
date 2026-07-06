@@ -73,48 +73,17 @@ window.Facebook = {
 
     async simulateClick(element)
     {
-        console.log("🖱️ Simulando clique robusto...");
+        console.log("🖱️ Simulando clique...");
 
         element.focus();
 
-        // Eventos de entrada
-        const hoverEvents = ["mouseenter", "mouseover", "pointerenter", "pointerover"];
-        for (const name of hoverEvents)
-        {
-            element.dispatchEvent(new Event(name, { bubbles: true }));
-        }
+        // Eventos de hover básicos
+        element.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+        element.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, buttons: 1 }));
 
-        // Dispara eventos de ponteiro primeiro (comuns em React moderno)
-        const pointerEvents = ["pointerdown", "pointerup"];
-        for (const name of pointerEvents)
-        {
-            element.dispatchEvent(new PointerEvent(name, {
-                bubbles: true,
-                cancelable: true,
-                view: window,
-                isPrimary: true,
-                pointerId: 1,
-                buttons: 1
-            }));
-            await new Promise(r => setTimeout(r, 50));
-        }
-
-        const mouseEvents = ["mousedown", "mouseup", "click"];
-
-        for (const name of mouseEvents)
-        {
-            const event = new MouseEvent(name, {
-                bubbles: true,
-                cancelable: true,
-                view: window,
-                buttons: 1
-            });
-            element.dispatchEvent(event);
-            await new Promise(r => setTimeout(r, 100));
-        }
-
-        // Delay antes do fallback final
         await new Promise(r => setTimeout(r, 100));
+
+        element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, buttons: 1 }));
         element.click();
     },
 
@@ -125,22 +94,29 @@ window.Facebook = {
 
         for (const dialog of dialogs)
         {
-            const text = dialog.innerText || "";
-            // Verifica se o modal parece ser o de criação de post
-            // Melhora a detecção procurando por cabeçalhos específicos
-            const hasHeader = dialog.querySelector("h2")?.innerText?.includes("Criar") ||
-                              dialog.querySelector("h1")?.innerText?.includes("Criar") ||
-                              text.startsWith("Criar publicação") ||
-                              text.startsWith("Criar post") ||
-                              text.startsWith("Create post");
+            const text = (dialog.innerText || "").toLowerCase();
+            const html = dialog.innerHTML.toLowerCase();
 
-            if (hasHeader ||
-                text.includes("No que você está pensando") ||
-                text.includes("What's on your mind") ||
-                text.includes("Postar") ||
-                text.includes("Post"))
+            // Verifica se o modal parece ser o de criação de post
+            // O texto "Adicionar ao post" é um indicador muito forte do editor
+            const matchesKeywords =
+                text.includes("adicionar ao post") ||
+                text.includes("add to your post") ||
+                text.includes("crie um post público") ||
+                text.includes("crie um post") ||
+                text.includes("criar publicação") ||
+                text.includes("criar post") ||
+                text.includes("create post") ||
+                text.includes("no que você está pensando") ||
+                text.includes("what's on your mind");
+
+            if (matchesKeywords)
             {
-                return true;
+                // Verifica se o modal é visível
+                const rect = dialog.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) {
+                    return true;
+                }
             }
         }
         return false;
@@ -150,35 +126,80 @@ window.Facebook = {
     {
         // No modal do FB, o campo de texto geralmente é um div com role="textbox" ou contenteditable
         // Tenta pegar o textbox do último modal aberto (caso haja sobreposição)
-        const dialogs = document.querySelectorAll("div[role='dialog']");
-        if (dialogs.length === 0) return null;
+        const dialogs = Array.from(document.querySelectorAll("div[role='dialog']")).reverse();
 
-        const lastDialog = dialogs[dialogs.length - 1];
-        const input = lastDialog.querySelector("div[role='textbox'], [contenteditable='true']");
-        return input;
+        for (const dialog of dialogs) {
+            // Prioriza o que está visível e tem o placeholder clássico
+            const inputs = Array.from(dialog.querySelectorAll("div[role='textbox'], [contenteditable='true']"));
+
+            for (const input of inputs) {
+                const rect = input.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) {
+                    return input;
+                }
+            }
+        }
+
+        // Fallback: qualquer um que pareça um editor dentro de um modal
+        return document.querySelector("div[role='dialog'] div[role='textbox'], div[role='dialog'] [contenteditable='true']");
     },
 
     async insertText(text)
     {
         console.log("⌨️ Tentando inserir texto...");
-        const input = this.findEditorInput();
 
-        if (!input)
-        {
-            console.log("❌ Campo de texto não encontrado.");
-            AppState.setStep("INPUT_NOT_FOUND");
-            return false;
+        // Tenta encontrar o input por alguns segundos, caso o modal tenha acabado de abrir
+        for (let i = 0; i < 20; i++) {
+            const input = this.findEditorInput();
+
+            if (input) {
+                console.log("✅ Editor encontrado. Inserindo...");
+
+                // Foca via clique para garantir que o Facebook ative o editor Lexical
+                input.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+                input.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+                input.focus();
+
+                await new Promise(r => setTimeout(r, 500));
+
+                // Posiciona o cursor no início/fim para garantir que o execCommand funcione
+                const selection = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(input);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+
+                await new Promise(r => setTimeout(r, 500));
+
+                // Tenta execCommand primeiro (mais confiável para o React do FB)
+                // Usamos "paste" como fallback se insertText falhar
+                let success = document.execCommand("insertText", false, text);
+
+                if (!success) {
+                    console.log("⚠️ execCommand(insertText) falhou, tentando fallback de eventos...");
+                    input.innerText = text;
+                    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+                }
+
+                // Dispara eventos finais para o React notar a mudança e esconder placeholders
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+                input.dispatchEvent(new Event("change", { bubbles: true }));
+
+                await new Promise(r => setTimeout(r, 300));
+                input.dispatchEvent(new Event("blur", { bubbles: true }));
+
+                AppState.facebook.textInserted = true;
+                AppState.setStep("TEXT_INSERTED");
+                return true;
+            }
+
+            await new Promise(r => setTimeout(r, 500));
         }
 
-        input.focus();
-        await new Promise(r => setTimeout(r, 200));
-
-        // Usa execCommand para simular o "colar" do usuário, o que o React do FB aceita melhor
-        document.execCommand("insertText", false, text);
-
-        AppState.facebook.textInserted = true;
-        AppState.setStep("TEXT_INSERTED");
-        return true;
+        console.log("❌ Campo de texto não encontrado.");
+        AppState.setStep("INPUT_NOT_FOUND");
+        return false;
     },
 
     async waitForPreview()
@@ -224,71 +245,91 @@ window.Facebook = {
             return true;
         }
 
-        AppState.setStep("OPENING_EDITOR");
-
-        let buttons = this.findEditorButtons();
-
-        // Tenta usar o seletor "aprendido" para priorizar
-        const learnedText = await Storage.get("learned_button_text");
-        if (learnedText) {
-            console.log("🧠 Usando texto aprendido:", learnedText);
-            const priorityMatch = buttons.find(b => b.innerText?.trim() === learnedText);
-            if (priorityMatch) {
-                buttons = [priorityMatch, ...buttons.filter(b => b !== priorityMatch)];
-            }
-        }
-
-        // Prioriza botões visíveis
-        const visibleButtons = buttons.filter(b => {
-            const rect = b.getBoundingClientRect();
-            return rect.width > 0 && rect.height > 0;
-        });
-
-        const targets = visibleButtons.length > 0 ? visibleButtons : buttons;
-
-        console.log(`Encontrados ${targets.length} candidatos.`);
-
-        if (targets.length === 0)
-        {
-            AppState.setStep("BUTTON_NOT_FOUND");
+        if (this._isClicking) {
+            console.log("⏳ Já existe um clique em andamento...");
             return false;
         }
 
-        for (const button of targets)
-        {
-            const buttonText = button.innerText?.trim();
-            console.log("Tentando clicar no botão:", buttonText?.substring(0, 30));
+        this._isClicking = true;
 
-            button.scrollIntoView({ behavior: "smooth", block: "center" });
-            await new Promise(r => setTimeout(r, 500));
+        try {
+            AppState.setStep("OPENING_EDITOR");
 
-            await this.simulateClick(button);
+            let buttons = this.findEditorButtons();
 
-            // Espera o modal carregar
-            for (let i = 0; i < 6; i++)
-            {
-                await new Promise(r => setTimeout(r, 500));
-                if (this.isModalOpen())
-                {
-                    console.log("✅ Modal de postagem detectado!");
-
-                    // "Aprende" qual texto funcionou
-                    if (buttonText) {
-                        await Storage.set("learned_button_text", buttonText);
-                    }
-
-                    AppState.facebook.editorOpen = true;
-                    AppState.setStep("EDITOR_OPEN");
-                    return true;
+            // Tenta usar o seletor "aprendido" para priorizar
+            const learnedText = await Storage.get("learned_button_text");
+            if (learnedText) {
+                console.log("🧠 Usando texto aprendido:", learnedText);
+                const priorityMatch = buttons.find(b => b.innerText?.trim() === learnedText);
+                if (priorityMatch) {
+                    buttons = [priorityMatch, ...buttons.filter(b => b !== priorityMatch)];
                 }
             }
 
-            console.log("⚠️ Modal não abriu com este botão, tentando próximo...");
-        }
+            // Prioriza botões visíveis e que NÃO são abas
+            const visibleButtons = buttons.filter(b => {
+                const rect = b.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0 && b.getAttribute("role") !== "tab";
+            });
 
-        console.log("❌ Falha em todos os candidatos.");
-        AppState.setStep("MODAL_NOT_OPENED");
-        return false;
+            const targets = visibleButtons.length > 0 ? visibleButtons : buttons;
+
+            console.log(`Encontrados ${targets.length} candidatos.`);
+
+            if (targets.length === 0)
+            {
+                AppState.setStep("BUTTON_NOT_FOUND");
+                return false;
+            }
+
+            for (const button of targets)
+            {
+                // Se o modal abriu enquanto estávamos trocando de botão, para imediatamente
+                if (this.isModalOpen()) break;
+
+                const buttonText = button.innerText?.trim();
+                console.log("Tentando clicar no botão:", buttonText?.substring(0, 30));
+
+                button.scrollIntoView({ behavior: "smooth", block: "center" });
+                await new Promise(r => setTimeout(r, 1000));
+
+                await this.simulateClick(button);
+
+                // Espera o modal carregar
+                for (let i = 0; i < 15; i++)
+                {
+                    await new Promise(r => setTimeout(r, 400));
+                    if (this.isModalOpen())
+                    {
+                        console.log("✅ Modal de postagem detectado!");
+
+                        // "Aprende" qual texto funcionou
+                        if (buttonText) {
+                            await Storage.set("learned_button_text", buttonText);
+                        }
+
+                        AppState.facebook.editorOpen = true;
+                        AppState.setStep("EDITOR_OPEN");
+
+                        // Pequena pausa para garantir que o Facebook processe o modal
+                        await new Promise(r => setTimeout(r, 800));
+                        return true;
+                    }
+                }
+
+                console.log("⚠️ Modal não abriu com este botão, tentando próximo...");
+
+                // Se falhou um botão, dá um tempo maior antes de tentar o próximo para evitar confusão no FB
+                await new Promise(r => setTimeout(r, 2000));
+            }
+
+            console.log("❌ Falha em todos os candidatos.");
+            AppState.setStep("MODAL_NOT_OPENED");
+            return false;
+        } finally {
+            this._isClicking = false;
+        }
     }
 
 };

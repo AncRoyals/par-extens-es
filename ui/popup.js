@@ -305,10 +305,12 @@ async function openGroup(group)
         if (state.shareLink)
         {
             console.log("📤 Enviando INSERT_TEXT...");
-            await Utils.sendCommand(tab, "INSERT_TEXT", { text: state.shareLink });
+            const insertResult = await Utils.sendCommand(tab, "INSERT_TEXT", { text: state.shareLink });
 
-            console.log("📤 Enviando WAIT_FOR_PREVIEW...");
-            await Utils.sendCommand(tab, "WAIT_FOR_PREVIEW");
+            if (insertResult?.success) {
+                console.log("📤 Enviando WAIT_FOR_PREVIEW...");
+                await Utils.sendCommand(tab, "WAIT_FOR_PREVIEW");
+            }
         }
     }
     catch (error)

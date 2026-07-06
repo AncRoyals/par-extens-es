@@ -10,7 +10,8 @@ window.Selectors = {
         "Write something",
         "Create post",
         "Discussion",
-        "Start a discussion"
+        "Start a discussion",
+        "Crie um post"
     ]
 
 };
