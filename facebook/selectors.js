@@ -5,8 +5,12 @@ window.Selectors = {
         "Escrever algo",
         "No que você está pensando",
         "Criar publicação",
+        "Discussão",
+        "Inicie uma discussão",
         "Write something",
-        "Create post"
+        "Create post",
+        "Discussion",
+        "Start a discussion"
     ]
 
 };

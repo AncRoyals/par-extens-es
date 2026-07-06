@@ -268,7 +268,11 @@ async function openUrlInNormalWindow(url) {
     if (windows.length > 0) {
       const targetWindow = windows[0];
       await chrome.tabs.create({ url, windowId: targetWindow.id });
-      await chrome.windows.update(targetWindow.id, { focused: true });
+      try {
+        await chrome.windows.update(targetWindow.id, { focused: true });
+      } catch (e) {
+        console.warn("Could not focus window (might be dragging a tab):", e);
+      }
     } else {
       // Não há nenhuma janela normal aberta ainda, cria uma.
       await chrome.windows.create({ url, type: "normal" });
@@ -284,15 +288,16 @@ async function openGroup(group)
 
     const tab = await Utils.waitForFacebookTab(group.url);
 
+    await Utils.waitForContent(tab);
+
     console.log("📤 Enviando OPEN_EDITOR...");
 
     try
     {
-        const response = await Utils.sendCommand(
+        await Utils.sendCommand(
             tab,
             "OPEN_EDITOR"
         );
-
     }
     catch (error)
     {
