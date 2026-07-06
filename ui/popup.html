@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Organizador de Grupos</title>
+<link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="logo">📋</div>
+    <div>
+      <h1>Organizador de Grupos</h1>
+      <p class="subtitle">Divulgação sem repetir e sem correria</p>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="postar">Postar</button>
+    <button class="tab-btn" data-tab="lista">Lista</button>
+    <button class="tab-btn" data-tab="config">Config</button>
+  </nav>
+
+  <!-- ABA POSTAR -->
+  <section id="tab-postar" class="tab-content active">
+    <div class="share-link-box">
+      <label class="field-label">Link da publicação a compartilhar</label>
+      <p class="hint">Cole aqui o link do post/reels da sua página. Fica salvo até você trocar.</p>
+      <div class="share-link-row">
+        <input type="text" id="shareLinkInput" placeholder="https://www.facebook.com/reel/..." />
+        <button id="btnCopiarLink" class="btn btn-primary btn-copy">📋 Copiar</button>
+      </div>
+      <div id="copiedMsg" class="saved-msg hidden">✅ Copiado! Cole com Ctrl+V no campo "Escreva algo..." do grupo.</div>
+    </div>
+
+    <div class="dashboard">
+      <div class="stat">
+        <span class="stat-value" id="statPostadosHoje">0</span>
+        <span class="stat-label">postados hoje</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="statRestantes">0</span>
+        <span class="stat-label">restantes</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="statTotal">0</span>
+        <span class="stat-label">total na lista</span>
+      </div>
+    </div>
+
+    <div id="emptyState" class="empty-state hidden">
+      <p>Sua lista está vazia.</p>
+      <p>Vá na aba <strong>Lista</strong> e cole os links dos grupos.</p>
+    </div>
+
+    <div id="currentGroupCard" class="current-group-card hidden">
+      <div class="progress-label">Grupo <span id="progressIndex">1</span> de <span id="progressTotal">0</span></div>
+
+      <div class="group-name" id="currentGroupName">Nome do grupo</div>
+      <div class="group-url" id="currentGroupUrl">https://facebook.com/...</div>
+
+      <div id="duplicateWarning" class="warning hidden">
+        ⚠️ Este grupo já recebeu um post há <span id="duplicateHours">0</span>h. Considere pular ou aguardar.
+      </div>
+
+      <div class="action-buttons">
+        <button id="btnAbrirGrupo" class="btn btn-primary">🔗 Abrir grupo no Facebook</button>
+        <button id="btnPular" class="btn btn-ghost">Pular este grupo</button>
+      </div>
+
+      <div class="cooldown-box">
+        <div id="cooldownTimer" class="cooldown-timer hidden">
+          Aguarde <span id="cooldownSeconds">0</span>s antes de marcar o próximo
+        </div>
+        <button id="btnMarcarPostado" class="btn btn-success" disabled>✅ Marcar como postado e avançar</button>
+      </div>
+    </div>
+
+    <div id="finishedState" class="empty-state hidden">
+      <p>🎉 Você passou por todos os grupos da lista!</p>
+      <button id="btnReiniciarFila" class="btn btn-primary">Reiniciar fila do início</button>
+    </div>
+  </section>
+
+  <!-- ABA LISTA -->
+  <section id="tab-lista" class="tab-content">
+    <label class="field-label">Colar links (um por linha)</label>
+    <p class="hint">Formato aceito: só o link, ou "Nome do grupo | link"</p>
+    <textarea id="inputLinks" rows="6" placeholder="Grupo Divulgação Pokémon RJ | https://www.facebook.com/groups/123456
+https://www.facebook.com/groups/789012"></textarea>
+    <div class="action-buttons">
+      <button id="btnAdicionarLinks" class="btn btn-primary">➕ Adicionar à lista</button>
+      <button id="btnLimparTudo" class="btn btn-danger-ghost">🗑️ Apagar lista inteira</button>
+    </div>
+
+    <div class="list-header">
+      <span id="listCount">0 grupos cadastrados</span>
+      <div>
+        <button id="btnExportar" class="btn-link">Exportar backup</button>
+        <button id="btnImportar" class="btn-link">Importar backup</button>
+        <input type="file" id="fileImportar" accept=".json" class="hidden" />
+      </div>
+    </div>
+
+    <ul id="groupList" class="group-list"></ul>
+  </section>
+
+  <!-- ABA CONFIG -->
+  <section id="tab-config" class="tab-content">
+    <div class="field">
+      <label class="field-label">Cooldown entre grupos (minutos)</label>
+      <p class="hint">Tempo mínimo de espera antes de liberar o botão "Marcar como postado" do próximo grupo.</p>
+      <input type="number" id="cooldownMinutes" min="0" step="0.5" value="3" />
+    </div>
+
+    <div class="field">
+      <label class="field-label">Janela de alerta de duplicidade (horas)</label>
+      <p class="hint">Se um grupo já recebeu post dentro desse período, você verá um aviso antes de postar de novo.</p>
+      <input type="number" id="duplicateWindow" min="1" step="1" value="24" />
+    </div>
+
+    <button id="btnSalvarConfig" class="btn btn-primary">Salvar configurações</button>
+    <div id="configSaved" class="saved-msg hidden">✅ Salvo!</div>
+
+    <hr />
+    <p class="hint">Todos os dados ficam salvos localmente no seu navegador. Nada é enviado para nenhum servidor.</p>
+  </section>
+
+  <script src="../core/utils.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
