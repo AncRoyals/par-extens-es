@@ -5,20 +5,21 @@ window.Facebook = {
         console.log("[Facebook]", message);
     },
 
-    findButtonByTexts(texts)
+    findButtonsByTexts(texts)
     {
-        console.log("🔍 Procurando botão por textos prioritários...");
+        console.log("🔍 Procurando botões por textos prioritários...");
 
         const elements = Array.from(document.querySelectorAll("button, [role='button'], div, span, a"));
+        const candidates = [];
+        const seen = new Set();
 
         for (const expected of texts)
         {
-            console.log(`Tentando texto: "${expected}"`);
-
             for (const element of elements)
             {
-                // Ignora abas (evita clicar no botão "Discussão" do cabeçalho)
+                // Ignora abas e o que já vimos
                 if (element.getAttribute("role") === "tab") continue;
+                if (seen.has(element)) continue;
 
                 const text = element.innerText?.trim();
                 const aria = element.getAttribute("aria-label")?.trim();
@@ -39,33 +40,33 @@ window.Facebook = {
 
                     const target = clickable || element;
 
-                    // Se for uma aba, ignora e continua procurando
                     if (target.getAttribute("role") === "tab") continue;
+                    if (seen.has(target)) continue;
 
-                    console.log("✅ Botão encontrado:", {
+                    console.log("✅ Candidato encontrado:", {
                         tag: target.tagName,
                         text: target.innerText?.substring(0, 30),
                         role: target.getAttribute("role")
                     });
 
-                    return target;
+                    candidates.push(target);
+                    seen.add(target);
+                    seen.add(element);
                 }
             }
         }
 
-        console.log("❌ Nenhum botão encontrado.");
-        return null;
+        return candidates;
     },
 
     findCreatePostButton()
     {
-        return this.findButtonByTexts(
-            Selectors.createPostTexts
-        );
+        const candidates = this.findButtonsByTexts(Selectors.createPostTexts);
+        return candidates[0] || null;
     },
-    findEditorButton()
+    findEditorButtons()
     {
-        return this.findButtonByTexts(
+        return this.findButtonsByTexts(
             Selectors.createPostTexts
         );
     },
@@ -75,6 +76,13 @@ window.Facebook = {
         console.log("🖱️ Simulando clique robusto...");
 
         element.focus();
+
+        // Eventos de entrada
+        const hoverEvents = ["mouseenter", "mouseover", "pointerenter", "pointerover"];
+        for (const name of hoverEvents)
+        {
+            element.dispatchEvent(new Event(name, { bubbles: true }));
+        }
 
         // Dispara eventos de ponteiro primeiro (comuns em React moderno)
         const pointerEvents = ["pointerdown", "pointerup"];
@@ -138,48 +146,41 @@ window.Facebook = {
 
         AppState.setStep("OPENING_EDITOR");
 
-        for (let attempt = 1; attempt <= 2; attempt++)
-        {
-            console.log(`Tentativa ${attempt} de abrir o editor...`);
-            const button = this.findEditorButton();
+        const buttons = this.findEditorButtons();
+        console.log(`Encontrados ${buttons.length} candidatos.`);
 
-            if (!button)
-            {
-                console.log("❌ Botão não encontrado nesta tentativa.");
-                if (attempt === 2)
-                {
-                    AppState.setStep("BUTTON_NOT_FOUND");
-                    return false;
-                }
-                await new Promise(r => setTimeout(r, 1000));
-                continue;
-            }
+        if (buttons.length === 0)
+        {
+            AppState.setStep("BUTTON_NOT_FOUND");
+            return false;
+        }
+
+        for (const button of buttons)
+        {
+            console.log("Tentando clicar no botão:", button.innerText?.substring(0, 30));
 
             button.scrollIntoView({ behavior: "smooth", block: "center" });
             await new Promise(r => setTimeout(r, 500));
 
             await this.simulateClick(button);
 
-            // Espera um pouco para o modal carregar
-            await new Promise(r => setTimeout(r, 2000));
-
-            if (this.isModalOpen())
+            // Espera o modal carregar
+            for (let i = 0; i < 5; i++)
             {
-                console.log("✅ Modal de postagem detectado!");
-                AppState.facebook.editorOpen = true;
-                AppState.setStep("EDITOR_OPEN");
-                return true;
+                await new Promise(r => setTimeout(r, 500));
+                if (this.isModalOpen())
+                {
+                    console.log("✅ Modal de postagem detectado!");
+                    AppState.facebook.editorOpen = true;
+                    AppState.setStep("EDITOR_OPEN");
+                    return true;
+                }
             }
 
-            console.log("⚠️ Modal não abriu na tentativa", attempt);
-            if (attempt === 1)
-            {
-                console.log("Retentando em 1.5s...");
-                await new Promise(r => setTimeout(r, 1500));
-            }
+            console.log("⚠️ Modal não abriu com este botão, tentando próximo...");
         }
 
-        console.log("❌ Falha em todas as tentativas de abrir o modal.");
+        console.log("❌ Falha em todos os candidatos.");
         AppState.setStep("MODAL_NOT_OPENED");
         return false;
     }
