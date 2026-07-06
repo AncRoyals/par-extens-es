@@ -1,5 +1,5 @@
 console.log("🚀 Ancient Social Manager iniciado!");
-alert("Content carregado!");
+
 function initialize()
 {
     Overlay.create();

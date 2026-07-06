@@ -284,6 +284,8 @@ async function openGroup(group)
 
     const tab = await Utils.waitForFacebookTab(group.url);
 
+    await Utils.waitForContent(tab);
+
     console.log("📤 Enviando OPEN_EDITOR...");
 
     try
