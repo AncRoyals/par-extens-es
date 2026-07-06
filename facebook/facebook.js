@@ -9,16 +9,17 @@ window.Facebook = {
     {
         console.log("🔍 Procurando botão por textos:", texts);
 
-        const elements = document.querySelectorAll("div, span, a, button");
+        // Primeiro tenta encontrar elementos que já são botões ou têm role="button"
+        const elements = document.querySelectorAll("button, [role='button'], div, span, a");
 
         for (const element of elements)
         {
             const text = element.innerText?.trim();
-            if (!text) continue;
+            const aria = element.getAttribute("aria-label")?.trim();
 
             for (const expected of texts)
             {
-                if (text.includes(expected))
+                if ((text && text.includes(expected)) || (aria && aria.includes(expected)))
                 {
                     // Tenta subir até encontrar o container clicável real (role="button")
                     let clickable = element;
@@ -68,6 +69,8 @@ window.Facebook = {
     {
         console.log("🖱️ Simulando clique robusto...");
 
+        element.focus();
+
         const events = ["mousedown", "mouseup", "click"];
 
         for (const name of events)
@@ -75,11 +78,19 @@ window.Facebook = {
             const event = new MouseEvent(name, {
                 bubbles: true,
                 cancelable: true,
-                view: window
+                view: window,
+                buttons: 1
             });
             element.dispatchEvent(event);
-            await new Promise(r => setTimeout(r, 50));
+            await new Promise(r => setTimeout(r, 100));
         }
+    },
+
+    isModalOpen()
+    {
+        // O Facebook abre um diálogo (role="dialog") para criação de posts
+        const dialog = document.querySelector("div[role='dialog']");
+        return !!dialog;
     },
 
     async openEditor()
@@ -101,10 +112,22 @@ window.Facebook = {
 
         await this.simulateClick(button);
 
-        AppState.facebook.editorOpen = true;
-        AppState.setStep("EDITOR_OPEN");
+        // Espera um pouco para o modal carregar
+        await new Promise(r => setTimeout(r, 1500));
 
-        return true;
+        if (this.isModalOpen())
+        {
+            console.log("✅ Modal de postagem detectado!");
+            AppState.facebook.editorOpen = true;
+            AppState.setStep("EDITOR_OPEN");
+            return true;
+        }
+        else
+        {
+            console.log("❌ Modal não abriu após o clique.");
+            AppState.setStep("MODAL_NOT_OPENED");
+            return false;
+        }
     }
 
 };
