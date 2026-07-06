@@ -24,7 +24,6 @@ chrome.action.onClicked.addListener(async () => {
 });
 
 chrome.windows.onRemoved.addListener((windowId) => {
-  console.error("Mensagem recebida: " + message.action);
   if (windowId === organizerWindowId) {
     organizerWindowId = null;
   }
