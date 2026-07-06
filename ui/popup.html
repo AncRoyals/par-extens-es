@@ -24,12 +24,18 @@
   <section id="tab-postar" class="tab-content active">
     <div class="share-link-box">
       <label class="field-label">Link da publicação a compartilhar</label>
-      <p class="hint">Cole aqui o link do post/reels da sua página. Fica salvo até você trocar.</p>
+      <p class="hint">Cole aqui o link do post/reels da sua página.</p>
       <div class="share-link-row">
         <input type="text" id="shareLinkInput" placeholder="https://www.facebook.com/reel/..." />
         <button id="btnCopiarLink" class="btn btn-primary btn-copy">📋 Copiar</button>
       </div>
-      <div id="copiedMsg" class="saved-msg hidden">✅ Copiado! Cole com Ctrl+V no campo "Escreva algo..." do grupo.</div>
+      <div id="copiedMsg" class="saved-msg hidden">✅ Copiado!</div>
+
+      <div style="margin-top: 12px;">
+        <label class="field-label">Descrição fixa (Opcional)</label>
+        <p class="hint">Se preenchido, o link será apagado após carregar o preview e este texto será colado no lugar.</p>
+        <textarea id="fixedDescriptionInput" rows="3" style="width: 100%; box-sizing: border-box; margin-top: 5px;" placeholder="Ex: Confira as novidades do nosso servidor!"></textarea>
+      </div>
     </div>
 
     <div class="dashboard">
@@ -64,7 +70,10 @@
 
       <div class="action-buttons">
         <button id="btnAbrirGrupo" class="btn btn-primary">🔗 Abrir grupo no Facebook</button>
-        <button id="btnPular" class="btn btn-ghost">Pular este grupo</button>
+        <div style="display: flex; gap: 10px; width: 100%;">
+          <button id="btnPular" class="btn btn-ghost" style="flex: 1;">Pular</button>
+          <button id="btnRemoverAtual" class="btn btn-danger-ghost" style="flex: 1;">Remover da lista</button>
+        </div>
       </div>
 
       <div class="cooldown-box">
@@ -116,6 +125,11 @@ https://www.facebook.com/groups/789012"></textarea>
       <label class="field-label">Janela de alerta de duplicidade (horas)</label>
       <p class="hint">Se um grupo já recebeu post dentro desse período, você verá um aviso antes de postar de novo.</p>
       <input type="number" id="duplicateWindow" min="1" step="1" value="24" />
+    </div>
+
+    <div class="field" style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+      <input type="checkbox" id="autoProgress" style="width: auto; margin: 0;" />
+      <label for="autoProgress" class="field-label" style="margin: 0;">Avanço automático (Passar para o próximo após postar)</label>
     </div>
 
     <button id="btnSalvarConfig" class="btn btn-primary">Salvar configurações</button>

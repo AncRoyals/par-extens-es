@@ -1,30 +1,28 @@
-// Abre a extensão como uma janela separada e fixa (não fecha ao trocar de aba),
-// em vez do balão padrão que some quando você clica em outro lugar.
+// Abre a extensão como uma nova aba no navegador, em vez de uma janela popup separada.
 
-let organizerWindowId = null;
+let organizerTabId = null;
 
 chrome.action.onClicked.addListener(async () => {
-  if (organizerWindowId !== null) {
+  if (organizerTabId !== null) {
     try {
-      await chrome.windows.update(organizerWindowId, { focused: true });
+      const tab = await chrome.tabs.get(organizerTabId);
+      await chrome.tabs.update(organizerTabId, { active: true });
+      await chrome.windows.update(tab.windowId, { focused: true });
       return;
     } catch (e) {
-      // A janela não existe mais (foi fechada), segue pra criar uma nova.
-      organizerWindowId = null;
+      // A aba não existe mais (foi fechada), segue pra criar uma nova.
+      organizerTabId = null;
     }
   }
 
-  const win = await chrome.windows.create({
-    url: chrome.runtime.getURL("ui/popup.html"),
-    type: "popup",
-    width: 420,
-    height: 660
+  const tab = await chrome.tabs.create({
+    url: chrome.runtime.getURL("ui/popup.html")
   });
-  organizerWindowId = win.id;
+  organizerTabId = tab.id;
 });
 
-chrome.windows.onRemoved.addListener((windowId) => {
-  if (windowId === organizerWindowId) {
-    organizerWindowId = null;
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (tabId === organizerTabId) {
+    organizerTabId = null;
   }
 });

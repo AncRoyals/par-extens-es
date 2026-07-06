@@ -32,6 +32,7 @@
       ],
       "js": [
         "core/state.js",
+        "core/storage.js",
         "core/overlay.js",
         "facebook/selectors.js",
         "facebook/facebook.js",

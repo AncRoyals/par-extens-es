@@ -7,9 +7,11 @@ const defaultState = {
   groups: [],        // { id, name, url, lastPosted: timestamp|null }
   currentIndex: 0,
   shareLink: "",
+  fixedDescription: "",
   settings: {
     cooldownMinutes: 3,
-    duplicateWindowHours: 24
+    duplicateWindowHours: 24,
+    autoProgress: true
   }
 };
 
@@ -205,6 +207,17 @@ function isToday(timestamp) {
   return d.toDateString() === now.toDateString();
 }
 
+function markCurrentAsPosted() {
+    const group = state.groups[state.currentIndex];
+    if (!group) return;
+    group.lastPosted = Date.now();
+    state.currentIndex++;
+    saveState();
+    clearInterval(cooldownInterval);
+    document.getElementById("cooldownTimer").classList.add("hidden");
+    renderAll();
+}
+
 // ===== Cooldown =====
 function startCooldown() {
   const minutes = Number(state.settings.cooldownMinutes) || 0;
@@ -236,10 +249,18 @@ function startCooldown() {
 // ===== Link a compartilhar =====
 function setupShareLink() {
   const input = document.getElementById("shareLinkInput");
+  const descInput = document.getElementById("fixedDescriptionInput");
+
   input.value = state.shareLink || "";
+  descInput.value = state.fixedDescription || "";
 
   input.addEventListener("input", () => {
     state.shareLink = input.value;
+    saveState();
+  });
+
+  descInput.addEventListener("input", () => {
+    state.fixedDescription = descInput.value;
     saveState();
   });
 
@@ -294,10 +315,61 @@ async function openGroup(group)
 
     try
     {
-        await Utils.sendCommand(
-            tab,
-            "OPEN_EDITOR"
-        );
+        let editorOpen = false;
+        
+        // Tenta abrir automaticamente
+        const openResult = await Utils.sendCommand(tab, "OPEN_EDITOR");
+        editorOpen = openResult?.success;
+
+        if (!editorOpen)
+        {
+            console.log("⚠️ Não consegui abrir o editor automaticamente. Aguardando abertura manual...");
+            const waitResult = await Utils.sendCommand(tab, "WAIT_FOR_MODAL", { timeout: 60 });
+            editorOpen = waitResult?.success;
+        }
+
+        if (!editorOpen)
+        {
+            console.log("❌ Editor não foi aberto a tempo.");
+            return tab;
+        }
+
+        // Se o editor abriu, automatiza o texto e o preview
+        if (state.shareLink)
+        {
+            console.log("📤 Enviando link...");
+            const insertResult = await Utils.sendCommand(tab, "INSERT_TEXT", { text: state.shareLink });
+
+            if (insertResult?.success) {
+                console.log("📤 Aguardando preview...");
+                const previewResult = await Utils.sendCommand(tab, "WAIT_FOR_PREVIEW");
+
+                // Se temos descrição ou se o usuário quer apenas o preview, limpamos o link
+                // (O usuário disse: "no lugar disso é possivel depois que colar dar um tempo e apagar o link que foi colado?")
+                if (previewResult?.success || true) // limpamos de qualquer forma após o timeout/sucesso
+                {
+                    console.log("📤 Limpando link...");
+                    await Utils.sendCommand(tab, "CLEAR_TEXT");
+
+                    if (state.fixedDescription)
+                    {
+                        console.log("📤 Inserindo descrição...");
+                        await Utils.sendCommand(tab, "INSERT_TEXT", { text: state.fixedDescription });
+                    }
+
+                    // Aguarda postagem e avança
+                    if (state.settings.autoProgress)
+                    {
+                        const postResult = await Utils.sendCommand(tab, "WAIT_FOR_POST_SUCCESS", { timeout: 45 });
+                        if (postResult?.success)
+                        {
+                            console.log("🚀 Postagem confirmada! Avançando...");
+                            markCurrentAsPosted();
+                        }
+                    }
+                }
+            }
+        }
     }
     catch (error)
     {
@@ -327,10 +399,12 @@ function setupPostarActions() {
 });
 
   document.getElementById("btnMarcarPostado").addEventListener("click", () => {
-    const group = state.groups[state.currentIndex];
-    if (!group) return;
-    group.lastPosted = Date.now();
-    state.currentIndex++;
+    markCurrentAsPosted();
+  });
+
+  document.getElementById("btnRemoverAtual").addEventListener("click", () => {
+    if (!confirm("Remover este grupo da sua lista permanentemente?")) return;
+    state.groups.splice(state.currentIndex, 1);
     saveState();
     clearInterval(cooldownInterval);
     document.getElementById("cooldownTimer").classList.add("hidden");
@@ -419,12 +493,17 @@ function downloadFallback(url) {
 function setupConfigActions() {
   document.getElementById("cooldownMinutes").value = state.settings.cooldownMinutes;
   document.getElementById("duplicateWindow").value = state.settings.duplicateWindowHours;
+  document.getElementById("autoProgress").checked = !!state.settings.autoProgress;
 
   document.getElementById("btnSalvarConfig").addEventListener("click", () => {
     const cooldown = parseFloat(document.getElementById("cooldownMinutes").value);
     const dupWindow = parseFloat(document.getElementById("duplicateWindow").value);
+    const autoProgress = document.getElementById("autoProgress").checked;
+
     state.settings.cooldownMinutes = isNaN(cooldown) ? 3 : cooldown;
     state.settings.duplicateWindowHours = isNaN(dupWindow) ? 24 : dupWindow;
+    state.settings.autoProgress = autoProgress;
+
     saveState();
     const savedMsg = document.getElementById("configSaved");
     savedMsg.classList.remove("hidden");

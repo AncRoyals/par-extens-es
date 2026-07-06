@@ -47,14 +47,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             break;
 
         case "OPEN_EDITOR":
-
-            const success = Facebook.openEditor();
-
-            sendResponse({
-                success
+            Facebook.openEditor().then(success => {
+                sendResponse({ success });
             });
+            return true;
 
-            break;
+        case "INSERT_TEXT":
+            Facebook.insertText(message.text).then(success => {
+                sendResponse({ success });
+            });
+            return true;
+
+        case "WAIT_FOR_PREVIEW":
+            Facebook.waitForPreview().then(success => {
+                sendResponse({ success });
+            });
+            return true;
+
+        case "CLEAR_TEXT":
+            Facebook.clearText().then(success => {
+                sendResponse({ success });
+            });
+            return true;
+
+        case "WAIT_FOR_MODAL":
+            Facebook.waitForModal(message.timeout).then(success => {
+                sendResponse({ success });
+            });
+            return true;
+
+        case "WAIT_FOR_POST_SUCCESS":
+            Facebook.waitForPostSuccess(message.timeout).then(success => {
+                sendResponse({ success });
+            });
+            return true;
     }
 
     return true;
