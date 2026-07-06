@@ -202,6 +202,46 @@ window.Facebook = {
         return false;
     },
 
+    async clearText()
+    {
+        console.log("🧹 Limpando texto do editor...");
+        const input = this.findEditorInput();
+
+        if (!input) return false;
+
+        input.focus();
+        document.execCommand("selectAll", false, null);
+        document.execCommand("delete", false, null);
+
+        // Notifica o React
+        input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+
+        return true;
+    },
+
+    async waitForModal(timeoutSeconds = 60)
+    {
+        console.log(`⏳ Aguardando abertura do modal (timeout ${timeoutSeconds}s)...`);
+        AppState.setStep("WAITING_MODAL");
+
+        const start = Date.now();
+        while (Date.now() - start < timeoutSeconds * 1000)
+        {
+            if (this.isModalOpen())
+            {
+                console.log("✅ Modal detectado!");
+                AppState.facebook.editorOpen = true;
+                AppState.setStep("EDITOR_OPEN");
+                return true;
+            }
+            await new Promise(r => setTimeout(r, 1000));
+        }
+
+        console.log("❌ Timeout aguardando modal.");
+        return false;
+    },
+
     async waitForPreview()
     {
         console.log("⏳ Aguardando preview do link...");

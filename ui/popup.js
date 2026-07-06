@@ -7,6 +7,7 @@ const defaultState = {
   groups: [],        // { id, name, url, lastPosted: timestamp|null }
   currentIndex: 0,
   shareLink: "",
+  fixedDescription: "",
   settings: {
     cooldownMinutes: 3,
     duplicateWindowHours: 24
@@ -236,10 +237,18 @@ function startCooldown() {
 // ===== Link a compartilhar =====
 function setupShareLink() {
   const input = document.getElementById("shareLinkInput");
+  const descInput = document.getElementById("fixedDescriptionInput");
+
   input.value = state.shareLink || "";
+  descInput.value = state.fixedDescription || "";
 
   input.addEventListener("input", () => {
     state.shareLink = input.value;
+    saveState();
+  });
+
+  descInput.addEventListener("input", () => {
+    state.fixedDescription = descInput.value;
     saveState();
   });
 
@@ -294,22 +303,48 @@ async function openGroup(group)
 
     try
     {
-        const openResult = await Utils.sendCommand(
-            tab,
-            "OPEN_EDITOR"
-        );
+        let editorOpen = false;
 
-        if (!openResult?.success) return tab;
+        // Tenta abrir automaticamente
+        const openResult = await Utils.sendCommand(tab, "OPEN_EDITOR");
+        editorOpen = openResult?.success;
+
+        if (!editorOpen)
+        {
+            console.log("⚠️ Não consegui abrir o editor automaticamente. Aguardando abertura manual...");
+            const waitResult = await Utils.sendCommand(tab, "WAIT_FOR_MODAL", { timeout: 60 });
+            editorOpen = waitResult?.success;
+        }
+
+        if (!editorOpen)
+        {
+            console.log("❌ Editor não foi aberto a tempo.");
+            return tab;
+        }
 
         // Se o editor abriu, automatiza o texto e o preview
         if (state.shareLink)
         {
-            console.log("📤 Enviando INSERT_TEXT...");
+            console.log("📤 Enviando link...");
             const insertResult = await Utils.sendCommand(tab, "INSERT_TEXT", { text: state.shareLink });
 
             if (insertResult?.success) {
-                console.log("📤 Enviando WAIT_FOR_PREVIEW...");
-                await Utils.sendCommand(tab, "WAIT_FOR_PREVIEW");
+                console.log("📤 Aguardando preview...");
+                const previewResult = await Utils.sendCommand(tab, "WAIT_FOR_PREVIEW");
+
+                // Se temos descrição ou se o usuário quer apenas o preview, limpamos o link
+                // (O usuário disse: "no lugar disso é possivel depois que colar dar um tempo e apagar o link que foi colado?")
+                if (previewResult?.success || true) // limpamos de qualquer forma após o timeout/sucesso
+                {
+                    console.log("📤 Limpando link...");
+                    await Utils.sendCommand(tab, "CLEAR_TEXT");
+
+                    if (state.fixedDescription)
+                    {
+                        console.log("📤 Inserindo descrição...");
+                        await Utils.sendCommand(tab, "INSERT_TEXT", { text: state.fixedDescription });
+                    }
+                }
             }
         }
     }

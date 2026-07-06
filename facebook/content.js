@@ -63,6 +63,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 sendResponse({ success });
             });
             return true;
+
+        case "CLEAR_TEXT":
+            Facebook.clearText().then(success => {
+                sendResponse({ success });
+            });
+            return true;
+
+        case "WAIT_FOR_MODAL":
+            Facebook.waitForModal(message.timeout).then(success => {
+                sendResponse({ success });
+            });
+            return true;
     }
 
     return true;
