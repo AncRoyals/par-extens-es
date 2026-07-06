@@ -76,9 +76,24 @@ window.Facebook = {
 
         element.focus();
 
-        const events = ["mousedown", "mouseup", "click"];
+        // Dispara eventos de ponteiro primeiro (comuns em React moderno)
+        const pointerEvents = ["pointerdown", "pointerup"];
+        for (const name of pointerEvents)
+        {
+            element.dispatchEvent(new PointerEvent(name, {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                isPrimary: true,
+                pointerId: 1,
+                buttons: 1
+            }));
+            await new Promise(r => setTimeout(r, 50));
+        }
 
-        for (const name of events)
+        const mouseEvents = ["mousedown", "mouseup", "click"];
+
+        for (const name of mouseEvents)
         {
             const event = new MouseEvent(name, {
                 bubbles: true,
@@ -90,15 +105,31 @@ window.Facebook = {
             await new Promise(r => setTimeout(r, 100));
         }
 
-        // Fallback para o clique nativo
+        // Delay antes do fallback final
+        await new Promise(r => setTimeout(r, 100));
         element.click();
     },
 
     isModalOpen()
     {
         // O Facebook abre um diálogo (role="dialog") para criação de posts
-        const dialog = document.querySelector("div[role='dialog']");
-        return !!dialog;
+        const dialogs = document.querySelectorAll("div[role='dialog']");
+
+        for (const dialog of dialogs)
+        {
+            const text = dialog.innerText || "";
+            // Verifica se o modal parece ser o de criação de post
+            if (text.includes("Criar publicação") ||
+                text.includes("Create post") ||
+                text.includes("No que você está pensando") ||
+                text.includes("What's on your mind") ||
+                text.includes("Postar") ||
+                text.includes("Post"))
+            {
+                return true;
+            }
+        }
+        return false;
     },
 
     async openEditor()
@@ -107,35 +138,50 @@ window.Facebook = {
 
         AppState.setStep("OPENING_EDITOR");
 
-        const button = this.findEditorButton();
-
-        if (!button)
+        for (let attempt = 1; attempt <= 2; attempt++)
         {
-            AppState.setStep("BUTTON_NOT_FOUND");
-            return false;
+            console.log(`Tentativa ${attempt} de abrir o editor...`);
+            const button = this.findEditorButton();
+
+            if (!button)
+            {
+                console.log("❌ Botão não encontrado nesta tentativa.");
+                if (attempt === 2)
+                {
+                    AppState.setStep("BUTTON_NOT_FOUND");
+                    return false;
+                }
+                await new Promise(r => setTimeout(r, 1000));
+                continue;
+            }
+
+            button.scrollIntoView({ behavior: "smooth", block: "center" });
+            await new Promise(r => setTimeout(r, 500));
+
+            await this.simulateClick(button);
+
+            // Espera um pouco para o modal carregar
+            await new Promise(r => setTimeout(r, 2000));
+
+            if (this.isModalOpen())
+            {
+                console.log("✅ Modal de postagem detectado!");
+                AppState.facebook.editorOpen = true;
+                AppState.setStep("EDITOR_OPEN");
+                return true;
+            }
+
+            console.log("⚠️ Modal não abriu na tentativa", attempt);
+            if (attempt === 1)
+            {
+                console.log("Retentando em 1.5s...");
+                await new Promise(r => setTimeout(r, 1500));
+            }
         }
 
-        button.scrollIntoView({ behavior: "smooth", block: "center" });
-        await new Promise(r => setTimeout(r, 500));
-
-        await this.simulateClick(button);
-
-        // Espera um pouco para o modal carregar
-        await new Promise(r => setTimeout(r, 1500));
-
-        if (this.isModalOpen())
-        {
-            console.log("✅ Modal de postagem detectado!");
-            AppState.facebook.editorOpen = true;
-            AppState.setStep("EDITOR_OPEN");
-            return true;
-        }
-        else
-        {
-            console.log("❌ Modal não abriu após o clique.");
-            AppState.setStep("MODAL_NOT_OPENED");
-            return false;
-        }
+        console.log("❌ Falha em todas as tentativas de abrir o modal.");
+        AppState.setStep("MODAL_NOT_OPENED");
+        return false;
     }
 
 };
