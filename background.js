@@ -26,3 +26,9 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     organizerTabId = null;
   }
 });
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === "CLOSE_TAB" && sender.tab) {
+        chrome.tabs.remove(sender.tab.id);
+    }
+});

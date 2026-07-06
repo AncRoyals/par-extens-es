@@ -11,7 +11,8 @@ const defaultState = {
   settings: {
     cooldownMinutes: 3,
     duplicateWindowHours: 24,
-    autoProgress: true
+    autoProgress: true,
+    autoOpenEditor: true
   }
 };
 
@@ -216,6 +217,25 @@ function markCurrentAsPosted() {
     clearInterval(cooldownInterval);
     document.getElementById("cooldownTimer").classList.add("hidden");
     renderAll();
+
+    // Se estiver no automático, fecha a aba e abre o próximo
+    if (state.settings.autoProgress)
+    {
+        if (currentGroupTabId)
+        {
+            chrome.tabs.remove(currentGroupTabId);
+            currentGroupTabId = null;
+        }
+
+        const nextGroup = state.groups[state.currentIndex];
+        if (nextGroup)
+        {
+            // Delay curto pra não ser bloqueado pelo FB por rapidez excessiva
+            setTimeout(() => {
+                openGroup(nextGroup);
+            }, 2000);
+        }
+    }
 }
 
 // ===== Cooldown =====
@@ -303,27 +323,32 @@ async function openUrlInNormalWindow(url) {
     chrome.tabs.create({ url });
   }
 }
+let currentGroupTabId = null;
+
 async function openGroup(group)
 {
     await openUrlInNormalWindow(group.url);
 
     const tab = await Utils.waitForFacebookTab(group.url);
+    currentGroupTabId = tab.id;
 
     await Utils.waitForContent(tab);
-
-    console.log("📤 Enviando OPEN_EDITOR...");
 
     try
     {
         let editorOpen = false;
 
-        // Tenta abrir automaticamente
-        const openResult = await Utils.sendCommand(tab, "OPEN_EDITOR");
-        editorOpen = openResult?.success;
+        // Tenta abrir automaticamente SE a opção estiver ligada
+        if (state.settings.autoOpenEditor)
+        {
+            console.log("📤 Enviando OPEN_EDITOR...");
+            const openResult = await Utils.sendCommand(tab, "OPEN_EDITOR");
+            editorOpen = openResult?.success;
+        }
 
         if (!editorOpen)
         {
-            console.log("⚠️ Não consegui abrir o editor automaticamente. Aguardando abertura manual...");
+            console.log("⚠️ Aguardando abertura manual do modal...");
             const waitResult = await Utils.sendCommand(tab, "WAIT_FOR_MODAL", { timeout: 60 });
             editorOpen = waitResult?.success;
         }
@@ -494,15 +519,18 @@ function setupConfigActions() {
   document.getElementById("cooldownMinutes").value = state.settings.cooldownMinutes;
   document.getElementById("duplicateWindow").value = state.settings.duplicateWindowHours;
   document.getElementById("autoProgress").checked = !!state.settings.autoProgress;
+  document.getElementById("autoOpenEditor").checked = !!state.settings.autoOpenEditor;
 
   document.getElementById("btnSalvarConfig").addEventListener("click", () => {
     const cooldown = parseFloat(document.getElementById("cooldownMinutes").value);
     const dupWindow = parseFloat(document.getElementById("duplicateWindow").value);
     const autoProgress = document.getElementById("autoProgress").checked;
+    const autoOpenEditor = document.getElementById("autoOpenEditor").checked;
 
     state.settings.cooldownMinutes = isNaN(cooldown) ? 3 : cooldown;
     state.settings.duplicateWindowHours = isNaN(dupWindow) ? 24 : dupWindow;
     state.settings.autoProgress = autoProgress;
+    state.settings.autoOpenEditor = autoOpenEditor;
 
     saveState();
     const savedMsg = document.getElementById("configSaved");
