@@ -70,7 +70,10 @@
 
       <div class="action-buttons">
         <button id="btnAbrirGrupo" class="btn btn-primary">🔗 Abrir grupo no Facebook</button>
-        <button id="btnPular" class="btn btn-ghost">Pular este grupo</button>
+        <div style="display: flex; gap: 10px; width: 100%;">
+          <button id="btnPular" class="btn btn-ghost" style="flex: 1;">Pular</button>
+          <button id="btnRemoverAtual" class="btn btn-danger-ghost" style="flex: 1;">Remover da lista</button>
+        </div>
       </div>
 
       <div class="cooldown-box">
@@ -122,6 +125,11 @@ https://www.facebook.com/groups/789012"></textarea>
       <label class="field-label">Janela de alerta de duplicidade (horas)</label>
       <p class="hint">Se um grupo já recebeu post dentro desse período, você verá um aviso antes de postar de novo.</p>
       <input type="number" id="duplicateWindow" min="1" step="1" value="24" />
+    </div>
+
+    <div class="field" style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+      <input type="checkbox" id="autoProgress" style="width: auto; margin: 0;" />
+      <label for="autoProgress" class="field-label" style="margin: 0;">Avanço automático (Passar para o próximo após postar)</label>
     </div>
 
     <button id="btnSalvarConfig" class="btn btn-primary">Salvar configurações</button>

@@ -210,8 +210,22 @@ window.Facebook = {
         if (!input) return false;
 
         input.focus();
-        document.execCommand("selectAll", false, null);
+
+        // Seleção agressiva
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(input);
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        await new Promise(r => setTimeout(r, 100));
+
         document.execCommand("delete", false, null);
+
+        // Fallback se execCommand falhar em limpar tudo
+        if (input.innerText.trim().length > 0) {
+            input.innerText = "";
+        }
 
         // Notifica o React
         input.dispatchEvent(new InputEvent("input", { bubbles: true }));
@@ -239,6 +253,53 @@ window.Facebook = {
         }
 
         console.log("❌ Timeout aguardando modal.");
+        return false;
+    },
+
+    async waitForPostSuccess(timeoutSeconds = 30)
+    {
+        console.log("⏳ Monitorando sucesso da postagem...");
+        AppState.setStep("MONITORING_POST");
+
+        const start = Date.now();
+        while (Date.now() - start < timeoutSeconds * 1000)
+        {
+            const text = document.body.innerText.toLowerCase();
+
+            // Mensagens de sucesso comuns no Facebook
+            if (text.includes("agradecemos seu post") ||
+                text.includes("agradecemos sua publicação") ||
+                text.includes("obrigado por compartilhar") ||
+                text.includes("post enviado") ||
+                text.includes("publicação enviada") ||
+                text.includes("enviamos sua publicação") ||
+                text.includes("enviamos seu post"))
+            {
+                console.log("✅ Post detectado com sucesso via mensagem!");
+                return true;
+            }
+
+            // Se o modal fechar, pode ser um sinal de sucesso em alguns contextos
+            if (!this.isModalOpen())
+            {
+                // Espera um pouco pra ver se a mensagem de sucesso aparece
+                await new Promise(r => setTimeout(r, 1500));
+
+                const postSuccessText = document.body.innerText.toLowerCase();
+                if (postSuccessText.includes("agradecemos") || postSuccessText.includes("postado") || postSuccessText.includes("publicado"))
+                {
+                    return true;
+                }
+
+                // Se o modal fechou e não há erro visível, consideramos sucesso parcial/provável
+                console.log("✅ Modal fechado, assumindo sucesso.");
+                return true;
+            }
+
+            await new Promise(r => setTimeout(r, 1000));
+        }
+
+        console.log("⚠️ Timeout aguardando confirmação de postagem.");
         return false;
     },
 

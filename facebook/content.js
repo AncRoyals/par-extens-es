@@ -75,6 +75,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 sendResponse({ success });
             });
             return true;
+
+        case "WAIT_FOR_POST_SUCCESS":
+            Facebook.waitForPostSuccess(message.timeout).then(success => {
+                sendResponse({ success });
+            });
+            return true;
     }
 
     return true;

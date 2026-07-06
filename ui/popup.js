@@ -10,7 +10,8 @@ const defaultState = {
   fixedDescription: "",
   settings: {
     cooldownMinutes: 3,
-    duplicateWindowHours: 24
+    duplicateWindowHours: 24,
+    autoProgress: true
   }
 };
 
@@ -206,6 +207,17 @@ function isToday(timestamp) {
   return d.toDateString() === now.toDateString();
 }
 
+function markCurrentAsPosted() {
+    const group = state.groups[state.currentIndex];
+    if (!group) return;
+    group.lastPosted = Date.now();
+    state.currentIndex++;
+    saveState();
+    clearInterval(cooldownInterval);
+    document.getElementById("cooldownTimer").classList.add("hidden");
+    renderAll();
+}
+
 // ===== Cooldown =====
 function startCooldown() {
   const minutes = Number(state.settings.cooldownMinutes) || 0;
@@ -344,6 +356,17 @@ async function openGroup(group)
                         console.log("📤 Inserindo descrição...");
                         await Utils.sendCommand(tab, "INSERT_TEXT", { text: state.fixedDescription });
                     }
+
+                    // Aguarda postagem e avança
+                    if (state.settings.autoProgress)
+                    {
+                        const postResult = await Utils.sendCommand(tab, "WAIT_FOR_POST_SUCCESS", { timeout: 45 });
+                        if (postResult?.success)
+                        {
+                            console.log("🚀 Postagem confirmada! Avançando...");
+                            markCurrentAsPosted();
+                        }
+                    }
                 }
             }
         }
@@ -376,10 +399,12 @@ function setupPostarActions() {
 });
 
   document.getElementById("btnMarcarPostado").addEventListener("click", () => {
-    const group = state.groups[state.currentIndex];
-    if (!group) return;
-    group.lastPosted = Date.now();
-    state.currentIndex++;
+    markCurrentAsPosted();
+  });
+
+  document.getElementById("btnRemoverAtual").addEventListener("click", () => {
+    if (!confirm("Remover este grupo da sua lista permanentemente?")) return;
+    state.groups.splice(state.currentIndex, 1);
     saveState();
     clearInterval(cooldownInterval);
     document.getElementById("cooldownTimer").classList.add("hidden");
@@ -468,12 +493,17 @@ function downloadFallback(url) {
 function setupConfigActions() {
   document.getElementById("cooldownMinutes").value = state.settings.cooldownMinutes;
   document.getElementById("duplicateWindow").value = state.settings.duplicateWindowHours;
+  document.getElementById("autoProgress").checked = !!state.settings.autoProgress;
 
   document.getElementById("btnSalvarConfig").addEventListener("click", () => {
     const cooldown = parseFloat(document.getElementById("cooldownMinutes").value);
     const dupWindow = parseFloat(document.getElementById("duplicateWindow").value);
+    const autoProgress = document.getElementById("autoProgress").checked;
+
     state.settings.cooldownMinutes = isNaN(cooldown) ? 3 : cooldown;
     state.settings.duplicateWindowHours = isNaN(dupWindow) ? 24 : dupWindow;
+    state.settings.autoProgress = autoProgress;
+
     saveState();
     const savedMsg = document.getElementById("configSaved");
     savedMsg.classList.remove("hidden");
