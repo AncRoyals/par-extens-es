@@ -373,8 +373,14 @@ async function openGroup(group)
                 // (O usuário disse: "no lugar disso é possivel depois que colar dar um tempo e apagar o link que foi colado?")
                 if (previewResult?.success || true) // limpamos de qualquer forma após o timeout/sucesso
                 {
+                    // Pequeno delay extra pra garantir que o Facebook gerou o card de preview
+                    await new Promise(r => setTimeout(r, 2500));
+
                     console.log("📤 Limpando link...");
                     await Utils.sendCommand(tab, "CLEAR_TEXT");
+
+                    // Delay entre limpar e colar a descrição
+                    await new Promise(r => setTimeout(r, 500));
 
                     if (state.fixedDescription)
                     {
