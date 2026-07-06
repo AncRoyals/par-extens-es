@@ -140,6 +140,68 @@ window.Facebook = {
         return false;
     },
 
+    findEditorInput()
+    {
+        // No modal do FB, o campo de texto geralmente é um div com role="textbox" ou contenteditable
+        const input = document.querySelector("div[role='dialog'] div[role='textbox'], div[role='dialog'] [contenteditable='true']");
+        return input;
+    },
+
+    async insertText(text)
+    {
+        console.log("⌨️ Tentando inserir texto...");
+        const input = this.findEditorInput();
+
+        if (!input)
+        {
+            console.log("❌ Campo de texto não encontrado.");
+            AppState.setStep("INPUT_NOT_FOUND");
+            return false;
+        }
+
+        input.focus();
+        await new Promise(r => setTimeout(r, 200));
+
+        // Usa execCommand para simular o "colar" do usuário, o que o React do FB aceita melhor
+        document.execCommand("insertText", false, text);
+
+        AppState.facebook.textInserted = true;
+        AppState.setStep("TEXT_INSERTED");
+        return true;
+    },
+
+    async waitForPreview()
+    {
+        console.log("⏳ Aguardando preview do link...");
+        AppState.setStep("WAITING_PREVIEW");
+
+        // O preview geralmente aparece como um card com um botão de fechar (X)
+        // ou uma imagem/link dentro do modal
+        for (let i = 0; i < 20; i++)
+        {
+            const dialog = document.querySelector("div[role='dialog']");
+            if (!dialog) break;
+
+            // Procura por indicadores de que o preview carregou
+            // (geralmente aparecem botões de remover preview ou cards de link)
+            const hasPreview = dialog.querySelector("[aria-label='Remover'], [aria-label='Remove'], img[src*='external']");
+
+            if (hasPreview)
+            {
+                console.log("✅ Preview detectado!");
+                AppState.facebook.previewLoaded = true;
+                AppState.setStep("PREVIEW_LOADED");
+                return true;
+            }
+
+            await new Promise(r => setTimeout(r, 500));
+        }
+
+        console.log("⚠️ Preview não detectado automaticamente.");
+        AppState.setStep("PREVIEW_TIMEOUT");
+        return false;
+    },
+
     async openEditor()
     {
         console.log("🚀 openEditor() foi chamado!");
@@ -147,15 +209,24 @@ window.Facebook = {
         AppState.setStep("OPENING_EDITOR");
 
         const buttons = this.findEditorButtons();
-        console.log(`Encontrados ${buttons.length} candidatos.`);
 
-        if (buttons.length === 0)
+        // Prioriza botões visíveis
+        const visibleButtons = buttons.filter(b => {
+            const rect = b.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        });
+
+        const targets = visibleButtons.length > 0 ? visibleButtons : buttons;
+
+        console.log(`Encontrados ${targets.length} candidatos.`);
+
+        if (targets.length === 0)
         {
             AppState.setStep("BUTTON_NOT_FOUND");
             return false;
         }
 
-        for (const button of buttons)
+        for (const button of targets)
         {
             console.log("Tentando clicar no botão:", button.innerText?.substring(0, 30));
 
@@ -165,7 +236,7 @@ window.Facebook = {
             await this.simulateClick(button);
 
             // Espera o modal carregar
-            for (let i = 0; i < 5; i++)
+            for (let i = 0; i < 6; i++)
             {
                 await new Promise(r => setTimeout(r, 500));
                 if (this.isModalOpen())

@@ -50,7 +50,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             Facebook.openEditor().then(success => {
                 sendResponse({ success });
             });
-            return true; // Mantém o canal aberto para a resposta assíncrona
+            return true;
+
+        case "INSERT_TEXT":
+            Facebook.insertText(message.text).then(success => {
+                sendResponse({ success });
+            });
+            return true;
+
+        case "WAIT_FOR_PREVIEW":
+            Facebook.waitForPreview().then(success => {
+                sendResponse({ success });
+            });
+            return true;
     }
 
     return true;

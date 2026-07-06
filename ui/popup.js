@@ -294,10 +294,22 @@ async function openGroup(group)
 
     try
     {
-        await Utils.sendCommand(
+        const openResult = await Utils.sendCommand(
             tab,
             "OPEN_EDITOR"
         );
+
+        if (!openResult?.success) return tab;
+
+        // Se o editor abriu, automatiza o texto e o preview
+        if (state.shareLink)
+        {
+            console.log("📤 Enviando INSERT_TEXT...");
+            await Utils.sendCommand(tab, "INSERT_TEXT", { text: state.shareLink });
+
+            console.log("📤 Enviando WAIT_FOR_PREVIEW...");
+            await Utils.sendCommand(tab, "WAIT_FOR_PREVIEW");
+        }
     }
     catch (error)
     {
