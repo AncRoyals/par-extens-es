@@ -42,6 +42,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     switch (message.action)
     {
+        case "PING":
+            sendResponse({ success: true });
+            break;
+
         case "OPEN_EDITOR":
 
             const success = Facebook.openEditor();
