@@ -47,14 +47,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             break;
 
         case "OPEN_EDITOR":
-
-            const success = Facebook.openEditor();
-
-            sendResponse({
-                success
+            Facebook.openEditor().then(success => {
+                sendResponse({ success });
             });
-
-            break;
+            return true; // Mantém o canal aberto para a resposta assíncrona
     }
 
     return true;
