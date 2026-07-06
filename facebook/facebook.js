@@ -7,26 +7,29 @@ window.Facebook = {
 
     findButtonByTexts(texts)
     {
-        console.log("🔍 Procurando botão por textos:", texts);
+        console.log("🔍 Procurando botão por textos prioritários...");
 
-        // Primeiro tenta encontrar elementos que já são botões ou têm role="button"
-        const elements = document.querySelectorAll("button, [role='button'], div, span, a");
+        const elements = Array.from(document.querySelectorAll("button, [role='button'], div, span, a"));
 
-        for (const element of elements)
+        for (const expected of texts)
         {
-            const text = element.innerText?.trim();
-            const aria = element.getAttribute("aria-label")?.trim();
+            console.log(`Tentando texto: "${expected}"`);
 
-            for (const expected of texts)
+            for (const element of elements)
             {
-                if ((text && text.includes(expected)) || (aria && aria.includes(expected)))
+                // Ignora abas (evita clicar no botão "Discussão" do cabeçalho)
+                if (element.getAttribute("role") === "tab") continue;
+
+                const text = element.innerText?.trim();
+                const aria = element.getAttribute("aria-label")?.trim();
+
+                if ((text && text === expected) || (text && text.includes(expected)) || (aria && aria.includes(expected)))
                 {
                     // Tenta subir até encontrar o container clicável real (role="button")
                     let clickable = element;
                     while (clickable && clickable.getAttribute("role") !== "button" && clickable.tagName !== "BUTTON")
                     {
                         clickable = clickable.parentElement;
-                        // Não subir demais
                         if (clickable && (clickable.tagName === "BODY" || clickable.tagName === "HTML"))
                         {
                             clickable = null;
@@ -36,11 +39,13 @@ window.Facebook = {
 
                     const target = clickable || element;
 
+                    // Se for uma aba, ignora e continua procurando
+                    if (target.getAttribute("role") === "tab") continue;
+
                     console.log("✅ Botão encontrado:", {
                         tag: target.tagName,
                         text: target.innerText?.substring(0, 30),
-                        role: target.getAttribute("role"),
-                        classes: target.className
+                        role: target.getAttribute("role")
                     });
 
                     return target;
@@ -84,6 +89,9 @@ window.Facebook = {
             element.dispatchEvent(event);
             await new Promise(r => setTimeout(r, 100));
         }
+
+        // Fallback para o clique nativo
+        element.click();
     },
 
     isModalOpen()
