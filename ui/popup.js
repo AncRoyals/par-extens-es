@@ -12,7 +12,8 @@ const defaultState = {
     cooldownMinutes: 3,
     duplicateWindowHours: 24,
     autoProgress: true,
-    autoOpenEditor: true
+    autoOpenEditor: true,
+    autoClickPost: false
   }
 };
 
@@ -388,6 +389,13 @@ async function openGroup(group)
                         await Utils.sendCommand(tab, "INSERT_TEXT", { text: state.fixedDescription });
                     }
 
+                    // Clicar em postar automaticamente?
+                    if (state.settings.autoClickPost)
+                    {
+                        console.log("📤 Clicando em Postar...");
+                        await Utils.sendCommand(tab, "CLICK_POST");
+                    }
+
                     // Aguarda postagem e avança
                     if (state.settings.autoProgress)
                     {
@@ -526,17 +534,20 @@ function setupConfigActions() {
   document.getElementById("duplicateWindow").value = state.settings.duplicateWindowHours;
   document.getElementById("autoProgress").checked = !!state.settings.autoProgress;
   document.getElementById("autoOpenEditor").checked = !!state.settings.autoOpenEditor;
+  document.getElementById("autoClickPost").checked = !!state.settings.autoClickPost;
 
   document.getElementById("btnSalvarConfig").addEventListener("click", () => {
     const cooldown = parseFloat(document.getElementById("cooldownMinutes").value);
     const dupWindow = parseFloat(document.getElementById("duplicateWindow").value);
     const autoProgress = document.getElementById("autoProgress").checked;
     const autoOpenEditor = document.getElementById("autoOpenEditor").checked;
+    const autoClickPost = document.getElementById("autoClickPost").checked;
 
     state.settings.cooldownMinutes = isNaN(cooldown) ? 3 : cooldown;
     state.settings.duplicateWindowHours = isNaN(dupWindow) ? 24 : dupWindow;
     state.settings.autoProgress = autoProgress;
     state.settings.autoOpenEditor = autoOpenEditor;
+    state.settings.autoClickPost = autoClickPost;
 
     saveState();
     const savedMsg = document.getElementById("configSaved");

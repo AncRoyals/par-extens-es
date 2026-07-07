@@ -222,6 +222,30 @@ window.Facebook = {
         return false;
     },
 
+    async clickPostButton()
+    {
+        console.log("🖱️ Tentando clicar em 'Postar'...");
+
+        // O botão de postar fica dentro do modal
+        const dialog = document.querySelector("div[role='dialog']");
+        if (!dialog) return false;
+
+        const postButtons = Array.from(dialog.querySelectorAll("button, [role='button']")).filter(b => {
+            const text = (b.textContent || "").toLowerCase();
+            return text === "postar" || text === "publicar" || text === "post" || text === "publish";
+        });
+
+        if (postButtons.length > 0)
+        {
+            // Escolhe o último (geralmente o principal de ação no rodapé do modal)
+            const btn = postButtons[postButtons.length - 1];
+            await this.simulateClick(btn);
+            return true;
+        }
+
+        return false;
+    },
+
     async openEditor()
     {
         if (this.isModalOpen()) return true;

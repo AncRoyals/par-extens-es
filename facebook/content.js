@@ -81,6 +81,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 sendResponse({ success });
             });
             return true;
+
+        case "CLICK_POST":
+            Facebook.clickPostButton().then(success => {
+                sendResponse({ success });
+            });
+            return true;
     }
 
     return true;
